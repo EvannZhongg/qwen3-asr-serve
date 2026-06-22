@@ -15,27 +15,29 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
 
 MODE="${MODE:-both}"
-VENV="${VENV:-$HERE/.venv}"
-PY="${PYTHON:-python3.11}"
+CONDA_HOME="${CONDA_HOME:-/data/miniforge}"
+CONDA_ENV_NAME="${CONDA_ENV_NAME:-qwen3-asr}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-$CONDA_HOME/envs/$CONDA_ENV_NAME}"
+PY_VER="${PY_VER:-3.11}"
 
 log() { printf "\033[1;34m[install]\033[0m %s\n" "$*"; }
 err() { printf "\033[1;31m[error]\033[0m %s\n" "$*" >&2; exit 1; }
 
-# ───── 1. Python version check ────────────────────────────────────────────
-if ! command -v "$PY" >/dev/null; then
-    PY="python3"
-fi
-PYVER=$("$PY" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') || err "no python"
-[[ "$PYVER" == "3.11" ]] || err "Python 3.11.x required, got $PYVER"
-log "python: $($PY --version)"
+# ───── 1. Conda check ─────────────────────────────────────────────────────
+[[ -x "$CONDA_HOME/bin/conda" ]] || err "conda not found at $CONDA_HOME/bin/conda (override with CONDA_HOME=...)"
+log "conda: $($CONDA_HOME/bin/conda --version)"
 
-# ───── 2. venv ────────────────────────────────────────────────────────────
-if [[ ! -d "$VENV" ]]; then
-    log "creating venv at $VENV"
-    "$PY" -m venv "$VENV"
+# ───── 2. Conda env (python 3.11) ─────────────────────────────────────────
+if [[ ! -d "$CONDA_ENV_PREFIX" ]]; then
+    log "creating conda env at $CONDA_ENV_PREFIX (python=$PY_VER)"
+    "$CONDA_HOME/bin/conda" create -p "$CONDA_ENV_PREFIX" "python=$PY_VER" -y >/dev/null
 fi
-# shellcheck disable=SC1091
-source "$VENV/bin/activate"
+# Activate without relying on `conda activate` (which needs shell hooks).
+export PATH="$CONDA_ENV_PREFIX/bin:$PATH"
+export CONDA_PREFIX="$CONDA_ENV_PREFIX"
+PYVER=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+[[ "$PYVER" == "$PY_VER" ]] || err "Python $PY_VER required, env has $PYVER"
+log "python: $(python --version)  ($CONDA_ENV_PREFIX)"
 pip install --quiet --upgrade pip setuptools wheel
 
 # Always use official PyPI for torch + vllm — tencent mirror has the
@@ -166,3 +168,6 @@ PY
 log "DONE.  Start the server with:  ./run.sh        (default MODE=both)"
 log "                                ./run.sh asr   (ASR only)"
 log "                                ./run.sh aligner"
+log ""
+log "conda env: $CONDA_ENV_PREFIX"
+log "activate manually: export PATH=\"$CONDA_ENV_PREFIX/bin:\$PATH\""

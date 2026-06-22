@@ -76,8 +76,12 @@ export LD_LIBRARY_PATH="$NEW_LD"
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 
-# venv
-if [[ -f .venv/bin/activate ]]; then
+# conda env (default: /data/miniforge/envs/qwen3-asr; override with CONDA_ENV_PREFIX)
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/data/miniforge/envs/qwen3-asr}"
+if [[ -x "$CONDA_ENV_PREFIX/bin/python" ]]; then
+    export PATH="$CONDA_ENV_PREFIX/bin:$PATH"
+    export CONDA_PREFIX="$CONDA_ENV_PREFIX"
+elif [[ -f .venv/bin/activate ]]; then
     # shellcheck disable=SC1091
     source .venv/bin/activate
 fi

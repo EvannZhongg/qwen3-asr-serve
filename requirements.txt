@@ -1,0 +1,106 @@
+# Qwen3-ASR-Serve — pip-installable runtime dependencies.
+#
+# NOTE: This file covers ONLY the standard pip-resolvable deps. The three
+# special steps below MUST be run separately (see install.sh):
+#
+#   1) torch / torchaudio / torchvision == 2.9.1  (PyPI official index only;
+#      tencent mirror has a broken 0.14.0+cu122 metadata file)
+#
+#        pip install --index-url https://pypi.org/simple/ \
+#            torch==2.9.1 torchaudio==2.9.1 torchvision==0.24.1
+#
+#   2) vllm == 0.14.0  (manylinux_2_31 wheel — forced via platform tag on
+#      glibc 2.28 hosts; pip's normal resolver rejects it)
+#
+#        SITE=$(python -c 'import site; print(site.getsitepackages()[0])')
+#        pip install --no-deps --force-reinstall \
+#            --platform manylinux_2_31_x86_64 --python-version 3.11 \
+#            --target "$SITE" --only-binary=:all: \
+#            --index-url https://pypi.org/simple/ vllm==0.14.0
+#
+#   3) qwen_asr  (installed from upstream git, --no-deps to avoid breaking
+#      the curated set below)
+#
+#        pip install --no-deps git+https://github.com/QwenLM/Qwen3-ASR.git
+#
+# Recommended order:  torch → vllm → this file → qwen_asr.
+
+# ── Server (FastAPI / Pydantic / Prometheus) ──────────────────────────────
+fastapi[standard]>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+pydantic>=2.12.0
+pydantic-settings>=2.0.0
+prometheus-client>=0.20.0
+prometheus-fastapi-instrumentator>=7.0.0
+aiohttp
+openai>=1.99.1
+anthropic==0.71.0
+
+# ── HuggingFace / model utils ─────────────────────────────────────────────
+huggingface-hub>=0.24.0
+transformers>=4.56.0,<5
+tokenizers>=0.21.1
+accelerate==1.12.0
+qwen-omni-utils
+
+# ── Audio / DSP ───────────────────────────────────────────────────────────
+soundfile>=0.12.1
+librosa>=0.10.0
+av
+nagisa==0.2.11
+soynlp==0.0.493
+
+# ── Numerics ──────────────────────────────────────────────────────────────
+numpy
+scipy
+numba==0.61.2
+
+# ── vLLM runtime deps (matches INSTALL_VLLM.md §3) ────────────────────────
+regex
+cachetools
+psutil
+sentencepiece
+blake3
+py-cpuinfo
+protobuf>=6.30.0
+tiktoken>=0.6.0
+lm-format-enforcer==0.11.3
+llguidance>=1.3.0,<1.4.0
+outlines_core==0.2.11
+diskcache==5.6.3
+lark==1.2.2
+xgrammar==0.1.29
+typing_extensions>=4.10
+filelock>=3.16.1
+partial-json-parser
+pyzmq>=25.0.0
+msgspec
+gguf>=0.17.0
+mistral_common[image]>=1.8.8
+opencv-python-headless>=4.11.0
+pyyaml
+einops
+compressed-tensors==0.13.0
+depyf==0.20.0
+cloudpickle
+watchfiles
+python-json-logger
+ninja
+pybase64
+cbor2
+ijson
+setproctitle
+openai-harmony>=0.0.3
+model-hosting-container-standards>=0.1.10,<1.0.0
+ray[cgraph]>=2.48.0
+grpcio>=1.76.0
+grpcio-reflection>=1.76.0
+mcp
+flashinfer-python==0.5.3
+
+# ── GPU / monitoring ──────────────────────────────────────────────────────
+pynvml>=11.5.0
+
+# ── Misc ──────────────────────────────────────────────────────────────────
+requests>=2.26.0
