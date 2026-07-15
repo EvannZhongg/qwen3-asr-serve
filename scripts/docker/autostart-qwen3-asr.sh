@@ -2,7 +2,6 @@
 set -e
 
 export APP_HOME="${APP_HOME:-/usr/local/app}"
-export ASR_PORT="${ASR_PORT:-9123}"
 
 APP_DIR="${APP_HOME}/qwen3-asr-serve"
 PID_FILE="${APP_DIR}/var/qwen3-asr-autostart.pid"
@@ -10,6 +9,14 @@ LOG_FILE="${APP_DIR}/logs/autostart.log"
 LOCK_DIR="${APP_DIR}/var/qwen3-asr-autostart.lock"
 
 mkdir -p "${APP_DIR}/var" "${APP_DIR}/logs"
+
+if [ -f "${APP_DIR}/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "${APP_DIR}/.env"
+    set +a
+fi
+export ASR_PORT="${ASR_PORT:-${PORT:-9123}}"
 
 if ! mkdir "${LOCK_DIR}" 2>/dev/null; then
     echo "[autostart] another autostart is running, skip" >> "${LOG_FILE}"

@@ -21,12 +21,6 @@ export CONDA_DEFAULT_ENV="${CONDA_ENV_NAME}"
 hash -r || true
 
 export LD_LIBRARY_PATH="/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
-export MODE="${MODE:-asr}"
-export HOST="${HOST:-0.0.0.0}"
-export PORT="${ASR_PORT:-9123}"
-export GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.6}"
-export ENABLE_AUDIO_DURATION_METRICS="${ENABLE_AUDIO_DURATION_METRICS:-false}"
-export CACHE_LOCAL_PATH_VALIDATION="${CACHE_LOCAL_PATH_VALIDATION:-true}"
 export HOME="${HOME:-/tmp}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/tmp/.cache}"
 export HF_HOME="${HF_HOME:-/tmp/huggingface}"
@@ -42,6 +36,11 @@ echo "[start-qwen3-asr] python=$(which python)"
 echo "[start-qwen3-asr] uvicorn=$(which uvicorn)"
 python -V
 uvicorn --version || true
-echo "[start-qwen3-asr] MODE=${MODE} HOST=${HOST} PORT=${PORT} GPU_MEM_UTIL=${GPU_MEM_UTIL}"
+if [ -f .env ]; then
+    echo "[start-qwen3-asr] using .env runtime config"
+    grep -E '^(MODE|HOST|PORT|GPU_MEM_UTIL|ENABLE_AUDIO_DURATION_METRICS|CACHE_LOCAL_PATH_VALIDATION)=' .env || true
+else
+    echo "[start-qwen3-asr] .env not found; run.sh/app defaults will be used"
+fi
 
-exec bash run.sh "${MODE}"
+exec bash run.sh "$@"
