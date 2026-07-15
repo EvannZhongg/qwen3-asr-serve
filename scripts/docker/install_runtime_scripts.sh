@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build-time installer for Docker runtime helper scripts.
-# Copies repository-maintained scripts into /usr/local/bin and conda
-# activate.d directories, avoiding large heredoc/base64 script bodies in the
-# Dockerfile.
+# Minimal Docker flow: install only the main entrypoint into /usr/local/bin.
+# The older conda activate.d autostart path is kept below as commented
+# reference, but is intentionally not installed in clean Docker environments.
 set -euo pipefail
 
 APP_HOME="${APP_HOME:-/usr/local/app}"
@@ -21,28 +21,38 @@ install_script() {
 }
 
 install_script "${SCRIPT_DIR}/start-qwen3-asr.sh" /usr/local/bin/start-qwen3-asr
-install_script "${SCRIPT_DIR}/autostart-qwen3-asr.sh" /usr/local/bin/autostart-qwen3-asr
 
-for env_dir in \
-    /data/miniconda3/envs/env-3.8.8 \
-    "${CONDA_HOME}/envs/${CONDA_ENV_NAME}"
-do
-    if [ -d "${env_dir}" ]; then
-        mkdir -p "${env_dir}/etc/conda/activate.d"
-        install_script \
-            "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh" \
-            "${env_dir}/etc/conda/activate.d/99-qwen3-asr-autostart.sh"
-    fi
-done
+# Historical/platform autostart path kept for reference only.
+# In the simplified Docker flow, CMD directly runs /usr/local/bin/start-qwen3-asr,
+# so we do not install /usr/local/bin/autostart-qwen3-asr or conda activate.d
+# hooks. Re-enable the block below only if a platform overrides CMD/ENTRYPOINT
+# and starts services indirectly via `conda activate`.
+#
+# install_script "${SCRIPT_DIR}/autostart-qwen3-asr.sh" /usr/local/bin/autostart-qwen3-asr
+#
+# for env_dir in \
+#     /data/miniconda3/envs/env-3.8.8 \
+#     "${CONDA_HOME}/envs/${CONDA_ENV_NAME}"
+# do
+#     if [ -d "${env_dir}" ]; then
+#         mkdir -p "${env_dir}/etc/conda/activate.d"
+#         install_script \
+#             "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh" \
+#             "${env_dir}/etc/conda/activate.d/99-qwen3-asr-autostart.sh"
+#     fi
+# done
 
 bash -n /usr/local/bin/start-qwen3-asr
-bash -n /usr/local/bin/autostart-qwen3-asr
-bash -n "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh"
 
-# 构建期校验：平台 Dockerfile 自动改写/注入不能污染运行时脚本。
-if grep -nE '^[[:space:]]*(USER|RUN)[[:space:]]' /usr/local/bin/autostart-qwen3-asr; then
-    echo "ERROR: autostart script contains Dockerfile instructions"
-    exit 1
-fi
-
-nl -ba /usr/local/bin/autostart-qwen3-asr | sed -n '45,90p'
+# Historical/platform autostart checks kept for reference only.
+#
+# bash -n /usr/local/bin/autostart-qwen3-asr
+# bash -n "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh"
+#
+# # 构建期校验：平台 Dockerfile 自动改写/注入不能污染运行时脚本。
+# if grep -nE '^[[:space:]]*(USER|RUN)[[:space:]]' /usr/local/bin/autostart-qwen3-asr; then
+#     echo "ERROR: autostart script contains Dockerfile instructions"
+#     exit 1
+# fi
+#
+# nl -ba /usr/local/bin/autostart-qwen3-asr | sed -n '45,90p'

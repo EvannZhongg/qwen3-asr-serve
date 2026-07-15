@@ -282,9 +282,9 @@ bash scripts/test_api.sh
 │   ├── test_api.sh            完整 API 测试套件
 │   └── docker/
 │       ├── start-qwen3-asr.sh            Docker 镜像内的主启动入口
-│       ├── autostart-qwen3-asr.sh        平台 conda activate.d 调用的后台自启动包装器
-│       ├── 99-qwen3-asr-autostart.sh     conda activate.d hook，触发自启动
-│       └── install_runtime_scripts.sh    构建期安装上述脚本到 /usr/local/bin 和 activate.d
+│       ├── install_runtime_scripts.sh    构建期安装主启动入口到 /usr/local/bin
+│       ├── autostart-qwen3-asr.sh        历史参考：conda activate.d 后台自启动包装器（默认不安装）
+│       └── 99-qwen3-asr-autostart.sh     历史参考：conda activate.d hook（默认不安装）
 └── app/
     ├── main.py                FastAPI 工厂 + 按 MODE 挂路由
     ├── lifespan.py            加载 Qwen3ASRModel.LLM 和/或 Qwen3ForcedAligner
