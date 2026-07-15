@@ -87,7 +87,7 @@ elif [[ -f .venv/bin/activate ]]; then
 fi
 
 HOST="${HOST:-0.0.0.0}"
-PORT="${PORT:-8000}"
+PORT="${PORT:-9123}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 
 # Refuse to start if the port is already taken — avoids two engines fighting

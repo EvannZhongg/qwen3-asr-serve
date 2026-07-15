@@ -29,6 +29,7 @@ dependencies = [
   "pydantic-settings>=2.0.0",
   "prometheus-client>=0.20.0",
   "huggingface-hub>=0.24.0",
+  "modelscope",
   "pynvml>=11.5.0",
   "soundfile>=0.12.1",
   "librosa>=0.10.0",

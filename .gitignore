@@ -19,3 +19,5 @@ logs/
 *.mp3
 *.flac
 *.m4a
+# macOS
+.DS_Store

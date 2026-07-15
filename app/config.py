@@ -32,10 +32,12 @@ class Settings(BaseSettings):
     gpu_mem_util: float = 0.6
     asr_batch: int = 256
     aligner_batch: int = 16
+    enable_audio_duration_metrics: bool = True
+    cache_local_path_validation: bool = False
 
     # ── HTTP ──────────────────────────────────────────────────────────
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 9123
 
     # ── File-path input ───────────────────────────────────────────────
     allow_local_paths: bool = False

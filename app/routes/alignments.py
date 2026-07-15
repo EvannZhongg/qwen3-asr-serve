@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import List, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 
 from app.audio_io import audio_duration_seconds, resolve_audio, resolve_audio_batch
 from app.mapping import alignment_to_response, to_qwen_lang
@@ -22,6 +23,15 @@ logger = logging.getLogger("qwen3-asr-serve.alignments")
 
 
 _VALID_GRANULARITY = {"word", "segment"}
+
+
+def _ms(start: float) -> float:
+    return (time.perf_counter() - start) * 1000.0
+
+
+def _set_timing_headers(response: Response, timings_ms: dict[str, float]) -> None:
+    for name, value in timings_ms.items():
+        response.headers[f"X-Qwen-Timing-{name}-Ms"] = f"{value:.3f}"
 
 
 def _check_granularity(g: str) -> str:
@@ -37,6 +47,7 @@ def _check_granularity(g: str) -> str:
 @router.post("/forced_alignment", response_model=AlignmentResponse)
 async def forced_alignment(
     request: Request,
+    response: Response,
     file: Optional[UploadFile] = File(None),
     file_path: Optional[str] = Form(None),
     text: str = Form("", description="Transcript to align (required, must be non-empty)."),
@@ -49,24 +60,42 @@ async def forced_alignment(
         raise HTTPException(status_code=400, detail="text must not be empty")
     if not language.strip():
         raise HTTPException(status_code=400, detail="language must not be empty")
+    total_start = time.perf_counter()
     qwen_lang = to_qwen_lang(language)
     if qwen_lang is None:
         raise HTTPException(status_code=400, detail="language is required")
 
+    resolve_start = time.perf_counter()
     audio = await resolve_audio(file, file_path)
+    resolve_ms = _ms(resolve_start)
 
     async with track("forced_alignment", request.app.state.mode):
+        metrics_start = time.perf_counter()
         AUDIO_S_TOTAL.labels(route="forced_alignment").inc(audio_duration_seconds(audio))
         BATCH_SIZE_HIST.labels(route="forced_alignment").observe(1)
+        metrics_ms = _ms(metrics_start)
+        inference_start = time.perf_counter()
         results = request.app.state.aligner.align(
             audio=[audio], text=[text], language=[qwen_lang]
         )
-    return AlignmentResponse(**alignment_to_response(results[0], g, text, qwen_lang))
+        inference_ms = _ms(inference_start)
+    mapping_start = time.perf_counter()
+    payload = AlignmentResponse(**alignment_to_response(results[0], g, text, qwen_lang))
+    mapping_ms = _ms(mapping_start)
+    _set_timing_headers(response, {
+        "Resolve": resolve_ms,
+        "Metrics": metrics_ms,
+        "Inference": inference_ms,
+        "Mapping": mapping_ms,
+        "Total": _ms(total_start),
+    })
+    return payload
 
 
 @router.post("/forced_alignment/batch", response_model=BatchAlignmentResponse)
 async def forced_alignment_batch(
     request: Request,
+    response: Response,
     audio_files: List[UploadFile] = File(default_factory=list),
     file_paths: List[str] = Form(default_factory=list),
     texts: List[str] = Form(..., description="One transcript per audio item, in order."),
@@ -75,11 +104,14 @@ async def forced_alignment_batch(
 ) -> BatchAlignmentResponse:
     """Run forced alignment on N (audio, text) pairs in one inference call."""
     g = _check_granularity(granularity)
+    total_start = time.perf_counter()
     qwen_lang = to_qwen_lang(language)
     if qwen_lang is None:
         raise HTTPException(status_code=400, detail="language is required")
 
+    resolve_start = time.perf_counter()
     audios = await resolve_audio_batch(audio_files, file_paths)
+    resolve_ms = _ms(resolve_start)
     if len(audios) != len(texts):
         raise HTTPException(
             status_code=400,
@@ -89,16 +121,30 @@ async def forced_alignment_batch(
         raise HTTPException(status_code=400, detail="every text entry must be non-empty")
 
     async with track("forced_alignment_batch", request.app.state.mode):
+        metrics_start = time.perf_counter()
         total_dur = sum(audio_duration_seconds(a) for a in audios)
         AUDIO_S_TOTAL.labels(route="forced_alignment_batch").inc(total_dur)
         BATCH_SIZE_HIST.labels(route="forced_alignment_batch").observe(len(audios))
+        metrics_ms = _ms(metrics_start)
+        inference_start = time.perf_counter()
         results = request.app.state.aligner.align(
             audio=audios, text=list(texts), language=[qwen_lang] * len(audios)
         )
+        inference_ms = _ms(inference_start)
 
+    mapping_start = time.perf_counter()
+    mapped_results = [
+        AlignmentResponse(**alignment_to_response(r, g, t, qwen_lang))
+        for r, t in zip(results, texts)
+    ]
+    mapping_ms = _ms(mapping_start)
+    _set_timing_headers(response, {
+        "Resolve": resolve_ms,
+        "Metrics": metrics_ms,
+        "Inference": inference_ms,
+        "Mapping": mapping_ms,
+        "Total": _ms(total_start),
+    })
     return BatchAlignmentResponse(
-        results=[
-            AlignmentResponse(**alignment_to_response(r, g, t, qwen_lang))
-            for r, t in zip(results, texts)
-        ]
+        results=mapped_results
     )

@@ -18,10 +18,10 @@
 #            --target "$SITE" --only-binary=:all: \
 #            --index-url https://pypi.org/simple/ vllm==0.14.0
 #
-#   3) qwen_asr  (installed from upstream git, --no-deps to avoid breaking
+#   3) qwen_asr  (installed from the verified Tencent GitHub mirror, --no-deps to avoid breaking
 #      the curated set below)
 #
-#        pip install --no-deps git+https://github.com/QwenLM/Qwen3-ASR.git
+#        pip install --no-deps git+https://mirrors.tencent.com/github.com/QwenLM/Qwen3-ASR.git
 #
 # Recommended order:  torch → vllm → this file → qwen_asr.
 
@@ -39,6 +39,7 @@ anthropic==0.71.0
 
 # ── HuggingFace / model utils ─────────────────────────────────────────────
 huggingface-hub>=0.24.0
+modelscope
 transformers>=4.56.0,<5
 tokenizers>=0.21.1
 accelerate==1.12.0

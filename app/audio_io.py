@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import os
+from functools import lru_cache
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -25,14 +26,29 @@ from app.config import settings
 AudioLike = Union[str, Tuple[np.ndarray, int]]
 
 
-def _validate_local_path(path: str) -> str:
+@lru_cache(maxsize=65536)
+def _cached_audio_duration_seconds(real_path: str, size: int, mtime_ns: int) -> float:
+    """Cache soundfile metadata by path plus file identity fields."""
+    try:
+        info = sf.info(real_path)
+        return float(info.duration)
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
+def _allowed_real_prefixes(prefixes: str) -> Tuple[str, ...]:
+    return tuple(os.path.realpath(p).rstrip("/") for p in prefixes.split(",") if p.strip())
+
+
+def _validate_local_path_uncached(path: str, allow_local_paths: bool, allowed_path_prefixes: str) -> str:
     """Resolve to a real path and enforce ALLOWED_PATH_PREFIXES whitelist."""
-    if not settings.allow_local_paths:
+    if not allow_local_paths:
         raise HTTPException(
             status_code=400,
             detail="local-path input is disabled (set ALLOW_LOCAL_PATHS=true to enable)",
         )
-    if not settings.allowed_path_prefixes_list:
+    allowed_prefixes = _allowed_real_prefixes(allowed_path_prefixes)
+    if not allowed_prefixes:
         raise HTTPException(
             status_code=403,
             detail="ALLOWED_PATH_PREFIXES is empty; no local path is permitted",
@@ -46,13 +62,32 @@ def _validate_local_path(path: str) -> str:
     if not os.path.isfile(real):
         raise HTTPException(status_code=404, detail=f"not a file: {real}")
 
-    for prefix in settings.allowed_path_prefixes_list:
-        if real.startswith(os.path.realpath(prefix).rstrip("/") + "/") or real == os.path.realpath(prefix):
+    for prefix in allowed_prefixes:
+        if real.startswith(prefix + "/") or real == prefix:
             return real
 
     raise HTTPException(
         status_code=403,
         detail=f"path {real} is outside ALLOWED_PATH_PREFIXES",
+    )
+
+
+@lru_cache(maxsize=65536)
+def _validate_local_path_cached(path: str, allow_local_paths: bool, allowed_path_prefixes: str) -> str:
+    return _validate_local_path_uncached(path, allow_local_paths, allowed_path_prefixes)
+
+
+def _validate_local_path(path: str) -> str:
+    if settings.cache_local_path_validation:
+        return _validate_local_path_cached(
+            path,
+            settings.allow_local_paths,
+            settings.allowed_path_prefixes,
+        )
+    return _validate_local_path_uncached(
+        path,
+        settings.allow_local_paths,
+        settings.allowed_path_prefixes,
     )
 
 
@@ -66,6 +101,17 @@ async def _read_multipart(file: UploadFile) -> Tuple[np.ndarray, int]:
         )
     try:
         wav, sr = sf.read(io.BytesIO(data), dtype="float32", always_2d=False)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"audio decode failed: {e}") from e
+    if wav.ndim > 1:
+        wav = wav.mean(axis=1)
+    return wav.astype(np.float32, copy=False), int(sr)
+
+
+def decode_audio_path(path: str) -> Tuple[np.ndarray, int]:
+    """Decode a validated local path to the same ndarray form as multipart input."""
+    try:
+        wav, sr = sf.read(path, dtype="float32", always_2d=False)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"audio decode failed: {e}") from e
     if wav.ndim > 1:
@@ -117,10 +163,16 @@ async def resolve_audio_batch(
 
 def audio_duration_seconds(audio: AudioLike) -> float:
     """Best-effort duration probe (used by metrics).  Path input → soundfile.info."""
+    if not settings.enable_audio_duration_metrics:
+        return 0.0
     if isinstance(audio, str):
         try:
-            info = sf.info(audio)
-            return float(info.duration)
+            st = os.stat(audio)
+            return _cached_audio_duration_seconds(
+                os.path.realpath(audio),
+                int(st.st_size),
+                int(st.st_mtime_ns),
+            )
         except Exception:  # noqa: BLE001
             return 0.0
     wav, sr = audio

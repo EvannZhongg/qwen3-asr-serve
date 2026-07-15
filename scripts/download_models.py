@@ -1,79 +1,83 @@
-"""Download Qwen3-ASR + ForcedAligner weights from HuggingFace.
+"""Download Qwen3-ASR + ForcedAligner weights from ModelScope.
 
 Usage:
     python scripts/download_models.py --mode {asr|aligner|both}
 
-Tries the default HF endpoint first, falls back to https://hf-mirror.com when
-HF is unreachable from this network.
+Models are written under ./models by default, e.g.:
+    models/Qwen3-ASR-1.7B
+    models/Qwen3-ForcedAligner-0.6B
+
+Equivalent manual commands:
+    pip install -U modelscope
+    modelscope download --model Qwen/Qwen3-ASR-1.7B --local_dir ./models/Qwen3-ASR-1.7B
+    modelscope download --model Qwen/Qwen3-ForcedAligner-0.6B --local_dir ./models/Qwen3-ForcedAligner-0.6B
 """
 
 from __future__ import annotations
 
 import argparse
-import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
-from huggingface_hub import snapshot_download
-from huggingface_hub.utils import HfHubHTTPError
 
-
-ASR_REPO = "Qwen/Qwen3-ASR-1.7B"
-ALIGNER_REPO = "Qwen/Qwen3-ForcedAligner-0.6B"
+ASR_MODEL = "Qwen/Qwen3-ASR-1.7B"
+ALIGNER_MODEL = "Qwen/Qwen3-ForcedAligner-0.6B"
 DEFAULT_MODEL_DIR = Path("./models")
-MIRROR = "https://hf-mirror.com"
 
 
-def _download_with_fallback(repo_id: str, local_dir: Path) -> None:
-    """Try HF first; on connection failure switch endpoint to hf-mirror."""
+def _model_name(model_id: str) -> str:
+    return model_id.rstrip("/").split("/")[-1]
+
+
+def _modelscope_cmd() -> list[str]:
+    exe = shutil.which("modelscope")
+    if exe:
+        return [exe]
+    raise RuntimeError(
+        "modelscope CLI not found. Install it first with: pip install -U modelscope"
+    )
+
+
+def _download_modelscope(model_id: str, local_dir: Path) -> None:
+    """Download one model through ModelScope CLI with resume behavior handled by CLI."""
     local_dir.mkdir(parents=True, exist_ok=True)
-    # Resume capability is built into snapshot_download — it skips already-downloaded files.
-    try:
-        snapshot_download(
-            repo_id=repo_id,
-            local_dir=str(local_dir),
-            local_dir_use_symlinks=False,
-        )
-        return
-    except (HfHubHTTPError, OSError, ConnectionError) as e:
-        print(f"[download] HF failed for {repo_id}: {e!r}", file=sys.stderr)
-
-    print(f"[download] retrying via mirror {MIRROR}", file=sys.stderr)
-    os.environ["HF_ENDPOINT"] = MIRROR
-    # huggingface_hub reads the env var on next call, but to be safe we also pass
-    # endpoint via kwargs if supported.
-    try:
-        snapshot_download(
-            repo_id=repo_id,
-            local_dir=str(local_dir),
-            local_dir_use_symlinks=False,
-            endpoint=MIRROR,
-        )
-    except TypeError:
-        snapshot_download(
-            repo_id=repo_id,
-            local_dir=str(local_dir),
-            local_dir_use_symlinks=False,
-        )
+    cmd = _modelscope_cmd() + [
+        "download",
+        "--model",
+        model_id,
+        "--local_dir",
+        str(local_dir),
+    ]
+    print(f"[download] {' '.join(cmd)}")
+    subprocess.run(cmd, check=True)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--mode", choices=["asr", "aligner", "both"], default="both")
     ap.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
-    ap.add_argument("--asr-repo", default=ASR_REPO)
-    ap.add_argument("--aligner-repo", default=ALIGNER_REPO)
+    ap.add_argument("--asr-model", default=ASR_MODEL)
+    ap.add_argument("--aligner-model", default=ALIGNER_MODEL)
     args = ap.parse_args()
 
-    if args.mode in ("asr", "both"):
-        target = args.model_dir / args.asr_repo.split("/")[-1]
-        print(f"[download] {args.asr_repo} → {target}")
-        _download_with_fallback(args.asr_repo, target)
+    try:
+        if args.mode in ("asr", "both"):
+            target = args.model_dir / _model_name(args.asr_model)
+            print(f"[download] {args.asr_model} → {target}")
+            _download_modelscope(args.asr_model, target)
 
-    if args.mode in ("aligner", "both"):
-        target = args.model_dir / args.aligner_repo.split("/")[-1]
-        print(f"[download] {args.aligner_repo} → {target}")
-        _download_with_fallback(args.aligner_repo, target)
+        if args.mode in ("aligner", "both"):
+            target = args.model_dir / _model_name(args.aligner_model)
+            print(f"[download] {args.aligner_model} → {target}")
+            _download_modelscope(args.aligner_model, target)
+    except subprocess.CalledProcessError as e:
+        print(f"[download] ModelScope command failed with exit code {e.returncode}", file=sys.stderr)
+        return e.returncode
+    except RuntimeError as e:
+        print(f"[download] {e}", file=sys.stderr)
+        return 127
 
     print("[download] done.")
     return 0

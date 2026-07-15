@@ -92,6 +92,7 @@ pip install --quiet \
     "transformers>=4.56.0,<5" "tokenizers>=0.21.1" "protobuf>=6.30.0" \
     "fastapi[standard]>=0.115.0" aiohttp "openai>=1.99.1" \
     "pydantic>=2.12.0" "prometheus_client>=0.18.0" \
+    modelscope \
     "prometheus-fastapi-instrumentator>=7.0.0" "tiktoken>=0.6.0" \
     "lm-format-enforcer==0.11.3" "llguidance>=1.3.0,<1.4.0" \
     "outlines_core==0.2.11" "diskcache==5.6.3" "lark==1.2.2" \
@@ -122,8 +123,8 @@ pip install --quiet --upgrade scipy
 
 # ───── 8. qwen_asr package (transcribe / ForcedAligner) ──────────────────
 # QWEN_ASR_SOURCE can be a git URL with optional @ref, OR a local path that
-# will be pip-installed editable. Default to the public upstream repo.
-QWEN_ASR_SOURCE="${QWEN_ASR_SOURCE:-git+https://github.com/QwenLM/Qwen3-ASR.git}"
+# will be pip-installed editable. Default to the verified Tencent GitHub mirror.
+QWEN_ASR_SOURCE="${QWEN_ASR_SOURCE:-git+https://mirrors.tencent.com/github.com/QwenLM/Qwen3-ASR.git}"
 if have qwen_asr; then
     log "qwen_asr already importable"
 else
@@ -138,6 +139,8 @@ log "installing server dependencies"
 pip install --quiet -e .
 
 # ───── 10. Model download ────────────────────────────────────────────────
+log "ensuring ModelScope CLI is installed for model download"
+pip install --quiet --upgrade modelscope
 log "downloading models for MODE=$MODE"
 python scripts/download_models.py --mode "$MODE"
 

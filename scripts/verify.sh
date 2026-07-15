@@ -11,7 +11,7 @@
 set -euo pipefail
 
 HOST="${HOST:-127.0.0.1}"
-PORT="${PORT:-8000}"
+PORT="${PORT:-9123}"
 MODE="${MODE:-both}"
 BASE="http://${HOST}:${PORT}"
 AUDIO="${AUDIO:-../Qwen3-ASR/audios/audio_v-female-T3P8sZ0Q_0006(6).wav}"
