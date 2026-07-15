@@ -38,7 +38,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/yourorg/qwen3-asr-serve"
+Repository = "https://github.com/EvannZhongg/qwen3-asr-serve.git"
 
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["app*"] } }
