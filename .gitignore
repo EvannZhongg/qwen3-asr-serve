@@ -19,5 +19,8 @@ logs/
 *.mp3
 *.flac
 *.m4a
+dockerfile
+.dockerignore
+dockerfile_old
 # macOS
 .DS_Store
