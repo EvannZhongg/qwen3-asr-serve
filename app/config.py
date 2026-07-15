@@ -41,6 +41,9 @@ class Settings(BaseSettings):
 
     # ── File-path input ───────────────────────────────────────────────
     allow_local_paths: bool = False
+    # DANGEROUS: when true, any existing local file path is allowed.
+    # Intended only for local/dev/benchmark environments.
+    allow_all_local_paths: bool = False
     # comma-separated; access the parsed list via `allowed_path_prefixes_list`
     allowed_path_prefixes: str = ""
     max_file_bytes: int = 200 * 1024 * 1024

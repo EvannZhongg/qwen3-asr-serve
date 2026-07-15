@@ -40,18 +40,22 @@ def _allowed_real_prefixes(prefixes: str) -> Tuple[str, ...]:
     return tuple(os.path.realpath(p).rstrip("/") for p in prefixes.split(",") if p.strip())
 
 
-def _validate_local_path_uncached(path: str, allow_local_paths: bool, allowed_path_prefixes: str) -> str:
-    """Resolve to a real path and enforce ALLOWED_PATH_PREFIXES whitelist."""
+def _validate_local_path_uncached(
+    path: str,
+    allow_local_paths: bool,
+    allow_all_local_paths: bool,
+    allowed_path_prefixes: str,
+) -> str:
+    """Resolve to a real path and enforce ALLOWED_PATH_PREFIXES whitelist.
+
+    ALLOW_LOCAL_PATHS enables file_path input in general.
+    ALLOW_ALL_LOCAL_PATHS skips the prefix whitelist and is intended only for
+    local/dev/benchmark environments.
+    """
     if not allow_local_paths:
         raise HTTPException(
             status_code=400,
             detail="local-path input is disabled (set ALLOW_LOCAL_PATHS=true to enable)",
-        )
-    allowed_prefixes = _allowed_real_prefixes(allowed_path_prefixes)
-    if not allowed_prefixes:
-        raise HTTPException(
-            status_code=403,
-            detail="ALLOWED_PATH_PREFIXES is empty; no local path is permitted",
         )
 
     try:
@@ -61,6 +65,19 @@ def _validate_local_path_uncached(path: str, allow_local_paths: bool, allowed_pa
 
     if not os.path.isfile(real):
         raise HTTPException(status_code=404, detail=f"not a file: {real}")
+
+    if allow_all_local_paths:
+        return real
+
+    allowed_prefixes = _allowed_real_prefixes(allowed_path_prefixes)
+    if not allowed_prefixes:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "ALLOWED_PATH_PREFIXES is empty; no local path is permitted "
+                "(or set ALLOW_ALL_LOCAL_PATHS=true for development only)"
+            ),
+        )
 
     for prefix in allowed_prefixes:
         if real.startswith(prefix + "/") or real == prefix:
@@ -73,8 +90,18 @@ def _validate_local_path_uncached(path: str, allow_local_paths: bool, allowed_pa
 
 
 @lru_cache(maxsize=65536)
-def _validate_local_path_cached(path: str, allow_local_paths: bool, allowed_path_prefixes: str) -> str:
-    return _validate_local_path_uncached(path, allow_local_paths, allowed_path_prefixes)
+def _validate_local_path_cached(
+    path: str,
+    allow_local_paths: bool,
+    allow_all_local_paths: bool,
+    allowed_path_prefixes: str,
+) -> str:
+    return _validate_local_path_uncached(
+        path,
+        allow_local_paths,
+        allow_all_local_paths,
+        allowed_path_prefixes,
+    )
 
 
 def _validate_local_path(path: str) -> str:
@@ -82,11 +109,13 @@ def _validate_local_path(path: str) -> str:
         return _validate_local_path_cached(
             path,
             settings.allow_local_paths,
+            settings.allow_all_local_paths,
             settings.allowed_path_prefixes,
         )
     return _validate_local_path_uncached(
         path,
         settings.allow_local_paths,
+        settings.allow_all_local_paths,
         settings.allowed_path_prefixes,
     )
 

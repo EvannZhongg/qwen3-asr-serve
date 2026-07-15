@@ -76,7 +76,7 @@ multipart 表单字段：
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `file` | file | 与 `file_path` 二选一 |
-| `file_path` | str | 本地路径；需开启 `ALLOW_LOCAL_PATHS=true` + `ALLOWED_PATH_PREFIXES` 白名单 |
+| `file_path` | str | 本地路径；需开启 `ALLOW_LOCAL_PATHS=true` + `ALLOWED_PATH_PREFIXES` 白名单；开发环境可用 `ALLOW_ALL_LOCAL_PATHS=true` 放行所有路径 |
 | `model` | str | 接受但忽略（单租户） |
 | `language` | str | ISO 639-1（`zh`、`en`、`yue`、`ja` ...）。不填即自动检测 |
 | `response_format` | str | `json`（默认）/ `verbose_json` / `text` |
@@ -205,6 +205,7 @@ curl -F file=@a.wav -F text="刚收到快递" -F language=zh \
 | `CACHE_LOCAL_PATH_VALIDATION` | `false` | 是否缓存成功的本地路径校验；不可变离线数据/benchmark 可开启以减少重复 `realpath/isfile` 开销 |
 | `HOST`, `PORT` | `0.0.0.0`, `9123` | |
 | `ALLOW_LOCAL_PATHS` | `false` | 设为 `true` 才能用 `file_path` |
+| `ALLOW_ALL_LOCAL_PATHS` | `false` | 开发/benchmark 便利开关；设为 `true` 且 `ALLOW_LOCAL_PATHS=true` 时放行所有存在的本地文件路径，忽略 `ALLOWED_PATH_PREFIXES`；生产环境不要开启 |
 | `ALLOWED_PATH_PREFIXES` | 空 | 逗号分隔的绝对前缀；路径白名单 |
 | `MAX_FILE_BYTES` | `209715200` | multipart 上传上限 200 MiB |
 | `LOG_LEVEL` | `info` | |
@@ -247,7 +248,7 @@ histogram_quantile(0.95,
 | 模型下载超时 | 使用 ModelScope 下载：`python scripts/download_models.py --mode both`；等价手动命令：`modelscope download --model Qwen/Qwen3-ASR-1.7B --local_dir ./models/Qwen3-ASR-1.7B` 和 `modelscope download --model Qwen/Qwen3-ForcedAligner-0.6B --local_dir ./models/Qwen3-ForcedAligner-0.6B`。 |
 | 启动报 `Error retrieving safetensors … Network is unreachable` | vLLM 即便本地有模型也会 HEAD 探测 huggingface.co。`run.sh` 默认设了 `HF_HUB_OFFLINE=1`；若手动启动需自己设。 |
 | `ValueError: ... KV cache memory ... larger than available` | 默认 `max_model_len=8192`（在 `lifespan.py`）应该够 ASR；若你拉高了请调小或调大 `GPU_MEM_UTIL`。 |
-| `403 path is outside ALLOWED_PATH_PREFIXES` | 开启了 `ALLOW_LOCAL_PATHS` 但路径不在白名单内。把目录加进 `ALLOWED_PATH_PREFIXES`（逗号分隔的绝对路径）。 |
+| `403 path is outside ALLOWED_PATH_PREFIXES` | 开启了 `ALLOW_LOCAL_PATHS` 但路径不在白名单内。把目录加进 `ALLOWED_PATH_PREFIXES`（逗号分隔的绝对路径），或仅在开发/benchmark 环境设置 `ALLOW_ALL_LOCAL_PATHS=true`。 |
 
 ---
 
