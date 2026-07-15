@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Background autostart wrapper for Docker/platform images.
+# Called by the conda activate.d hook; it avoids duplicate starts via pid,
+# port, and lock checks, then launches /usr/local/bin/start-qwen3-asr detached.
 set -e
 
 export APP_HOME="${APP_HOME:-/usr/local/app}"

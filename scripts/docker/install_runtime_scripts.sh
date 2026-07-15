@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Build-time installer for Docker runtime helper scripts.
+# Copies repository-maintained scripts into /usr/local/bin and conda
+# activate.d directories, avoiding large heredoc/base64 script bodies in the
+# Dockerfile.
 set -euo pipefail
 
 APP_HOME="${APP_HOME:-/usr/local/app}"

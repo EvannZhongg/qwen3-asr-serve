@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Main Docker image entrypoint for qwen3-asr-serve.
+# Activates the packaged conda environment, prepares runtime cache/log dirs,
+# then delegates to repository run.sh so .env and normal service controls work.
 set -e
 
 export APP_HOME="${APP_HOME:-/usr/local/app}"
