@@ -8,20 +8,16 @@ export APP_HOME="${APP_HOME:-/usr/local/app}"
 export CONDA_HOME="${CONDA_HOME:-/usr/local/app/miniforge3}"
 export CONDA_ENV_NAME="${CONDA_ENV_NAME:-qwen3-asr-flow}"
 
-# Historical note:
-# Older images installed a conda activate.d hook that could recursively trigger
-# autostart while this script was activating the packaged env.  The simplified
-# Docker flow no longer installs that hook, so the guard below is no longer
-# needed. Keep it here as reference if the hook path is re-enabled later.
-#
-# export QWEN3_ASR_STARTING=1
+# Avoid recursively triggering the conda activate.d autostart hook while this
+# entrypoint activates the packaged env.
+export QWEN3_ASR_STARTING=1
 
 if [ -f "${CONDA_HOME}/etc/profile.d/conda.sh" ]; then
     source "${CONDA_HOME}/etc/profile.d/conda.sh"
     conda activate "${CONDA_ENV_NAME}"
 fi
 
-# unset QWEN3_ASR_STARTING
+unset QWEN3_ASR_STARTING
 
 export PATH="${CONDA_HOME}/envs/${CONDA_ENV_NAME}/bin:${CONDA_HOME}/bin:${PATH}"
 export CONDA_PREFIX="${CONDA_HOME}/envs/${CONDA_ENV_NAME}"

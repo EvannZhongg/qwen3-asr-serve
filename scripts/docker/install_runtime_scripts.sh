@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build-time installer for Docker runtime helper scripts.
-# Minimal Docker flow: install only the main entrypoint into /usr/local/bin.
-# The older conda activate.d autostart path is kept below as commented
-# reference, but is intentionally not installed in clean Docker environments.
+# Minimal Docker flow: install the main entrypoint and a simplified conda
+# activate.d hook.  The hook delegates to the repository's ./run.sh -d, so
+# there is no separate autostart wrapper to maintain.
 set -euo pipefail
 
 APP_HOME="${APP_HOME:-/usr/local/app}"
@@ -22,32 +22,24 @@ install_script() {
 
 install_script "${SCRIPT_DIR}/start-qwen3-asr.sh" /usr/local/bin/start-qwen3-asr
 
-# Historical/platform autostart path kept for reference only.
-# In the simplified Docker flow, CMD directly runs /usr/local/bin/start-qwen3-asr,
-# so we do not install /usr/local/bin/autostart-qwen3-asr or conda activate.d
-# hooks. Re-enable the block below only if a platform overrides CMD/ENTRYPOINT
-# and starts services indirectly via `conda activate`.
-#
-# install_script "${SCRIPT_DIR}/autostart-qwen3-asr.sh" /usr/local/bin/autostart-qwen3-asr
-#
-# for env_dir in \
-#     /data/miniconda3/envs/env-3.8.8 \
-#     "${CONDA_HOME}/envs/${CONDA_ENV_NAME}"
-# do
-#     if [ -d "${env_dir}" ]; then
-#         mkdir -p "${env_dir}/etc/conda/activate.d"
-#         install_script \
-#             "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh" \
-#             "${env_dir}/etc/conda/activate.d/99-qwen3-asr-autostart.sh"
-#     fi
-# done
+HOOK_DIR="${CONDA_HOME}/envs/${CONDA_ENV_NAME}/etc/conda/activate.d"
+mkdir -p "${HOOK_DIR}"
+install_script \
+    "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh" \
+    "${HOOK_DIR}/99-qwen3-asr-autostart.sh"
 
 bash -n /usr/local/bin/start-qwen3-asr
+bash -n "${HOOK_DIR}/99-qwen3-asr-autostart.sh"
 
-# Historical/platform autostart checks kept for reference only.
+# Historical alternatives kept for reference only:
+# 1) /etc/profile.d login-shell autostart:
 #
+# install_script "${SCRIPT_DIR}/profile-autostart-qwen3-asr.sh" /etc/profile.d/qwen3-asr-autostart.sh
+#
+# 2) Older separate autostart wrapper:
+#
+# install_script "${SCRIPT_DIR}/autostart-qwen3-asr.sh" /usr/local/bin/autostart-qwen3-asr
 # bash -n /usr/local/bin/autostart-qwen3-asr
-# bash -n "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh"
 #
 # # 构建期校验：平台 Dockerfile 自动改写/注入不能污染运行时脚本。
 # if grep -nE '^[[:space:]]*(USER|RUN)[[:space:]]' /usr/local/bin/autostart-qwen3-asr; then
