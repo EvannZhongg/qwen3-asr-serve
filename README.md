@@ -282,8 +282,8 @@ bash scripts/test_api.sh
 │   ├── test_api.sh            完整 API 测试套件
 │   └── docker/
 │       ├── start-qwen3-asr.sh            Docker 镜像内的主启动入口
-│       ├── install_runtime_scripts.sh    构建期安装主入口；conda hook 默认注释，便于测试 CMD 是否被平台覆盖
-│       ├── 99-qwen3-asr-autostart.sh     历史参考：conda activate.d hook，可直接通过 ./run.sh -d 自启动
+│       ├── install_runtime_scripts.sh    构建期安装主入口；不安装 conda hook，不做自启动
+│       ├── 99-qwen3-asr-autostart.sh     历史参考：conda activate.d hook，可通过 ./run.sh -d 自启动
 │       ├── profile-autostart-qwen3-asr.sh 历史参考：登录交互 shell 自启动（默认不安装）
 │       └── autostart-qwen3-asr.sh        历史参考：独立后台自启动包装器（默认不安装）
 └── app/

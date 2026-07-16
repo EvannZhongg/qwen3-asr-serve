@@ -159,11 +159,24 @@ for p in parts:
 print(":".join(out))
 PY
 )
-LD_LIBRARY_PATH="$VERIFY_LD" python - <<'PY'
+# Docker/image build stages often do not expose a GPU.  Keep bare-metal/manual
+# installs strict by default, and set REQUIRE_CUDA=0 only for build-time import
+# verification.
+REQUIRE_CUDA="${REQUIRE_CUDA:-1}"
+LD_LIBRARY_PATH="$VERIFY_LD" REQUIRE_CUDA="$REQUIRE_CUDA" python - <<'PY'
+import os
+
 import vllm, torch
+
 print(f"vllm: {vllm.__version__}")
 print(f"torch: {torch.__version__}  cuda: {torch.cuda.is_available()}")
-assert torch.cuda.is_available(), "CUDA not available; double-check LD_LIBRARY_PATH (should not include cuda compat)"
+
+require_cuda = os.environ.get("REQUIRE_CUDA", "1").lower() not in {"0", "false", "no"}
+if require_cuda:
+    assert torch.cuda.is_available(), "CUDA not available; double-check LD_LIBRARY_PATH (should not include cuda compat)"
+elif not torch.cuda.is_available():
+    print("cuda available: False  (skipped because REQUIRE_CUDA=0)")
+
 from qwen_asr import Qwen3ASRModel, Qwen3ForcedAligner  # noqa
 print("qwen_asr OK")
 PY
