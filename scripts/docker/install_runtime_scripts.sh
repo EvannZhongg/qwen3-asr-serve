@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build-time installer for Docker runtime helper scripts.
-# Minimal Docker flow: install the main entrypoint and a simplified conda
-# activate.d hook.  The hook delegates to the repository's ./run.sh -d, so
-# there is no separate autostart wrapper to maintain.
+# Minimal Docker flow: install the main entrypoint only.  For CMD override
+# testing, the conda activate.d autostart hook is kept below as commented
+# reference but intentionally not installed.
 set -euo pipefail
 
 APP_HOME="${APP_HOME:-/usr/local/app}"
@@ -22,37 +22,41 @@ install_script() {
 
 install_script "${SCRIPT_DIR}/start-qwen3-asr.sh" /usr/local/bin/start-qwen3-asr
 
-install_conda_hook() {
-    local env_dir="$1"
-    if [ -d "${env_dir}" ]; then
-        local hook_dir="${env_dir}/etc/conda/activate.d"
-        mkdir -p "${hook_dir}"
-        install_script \
-            "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh" \
-            "${hook_dir}/99-qwen3-asr-autostart.sh"
-        bash -n "${hook_dir}/99-qwen3-asr-autostart.sh"
-    fi
-}
-
-# 1) Service env: protects explicit `conda activate qwen3-asr-flow`.
-install_conda_hook "${CONDA_HOME}/envs/${CONDA_ENV_NAME}"
-
-# 2) Platform default env: bore's /data/bore_run_script/end.sh activates
-# $ENV_DEFAULT_PYTHON from /data/miniconda3.  Installing the same lightweight
-# hook here starts the service as soon as the platform enters the environment.
-install_conda_hook "/data/miniconda3/envs/env-3.8.8"
-
-# If the build environment exposes ENV_DEFAULT_PYTHON, support both name and
-# absolute-path forms as an extra best-effort target.
-if [ -n "${ENV_DEFAULT_PYTHON:-}" ]; then
-    if [ -d "${ENV_DEFAULT_PYTHON}" ]; then
-        install_conda_hook "${ENV_DEFAULT_PYTHON}"
-    else
-        install_conda_hook "/data/miniconda3/envs/${ENV_DEFAULT_PYTHON}"
-    fi
-fi
-
 bash -n /usr/local/bin/start-qwen3-asr
+
+# Conda activate.d autostart hook kept for reference only during CMD testing.
+# Re-enable this block if the platform is confirmed to override Docker CMD and
+# only enters services through `conda activate "$ENV_DEFAULT_PYTHON"`.
+#
+# install_conda_hook() {
+#     local env_dir="$1"
+#     if [ -d "${env_dir}" ]; then
+#         local hook_dir="${env_dir}/etc/conda/activate.d"
+#         mkdir -p "${hook_dir}"
+#         install_script \
+#             "${SCRIPT_DIR}/99-qwen3-asr-autostart.sh" \
+#             "${hook_dir}/99-qwen3-asr-autostart.sh"
+#         bash -n "${hook_dir}/99-qwen3-asr-autostart.sh"
+#     fi
+# }
+#
+# # 1) Service env: protects explicit `conda activate qwen3-asr-flow`.
+# install_conda_hook "${CONDA_HOME}/envs/${CONDA_ENV_NAME}"
+#
+# # 2) Platform default env: bore's /data/bore_run_script/end.sh activates
+# # $ENV_DEFAULT_PYTHON from /data/miniconda3.  Installing the same lightweight
+# # hook here starts the service as soon as the platform enters the environment.
+# install_conda_hook "/data/miniconda3/envs/env-3.8.8"
+#
+# # If the build environment exposes ENV_DEFAULT_PYTHON, support both name and
+# # absolute-path forms as an extra best-effort target.
+# if [ -n "${ENV_DEFAULT_PYTHON:-}" ]; then
+#     if [ -d "${ENV_DEFAULT_PYTHON}" ]; then
+#         install_conda_hook "${ENV_DEFAULT_PYTHON}"
+#     else
+#         install_conda_hook "/data/miniconda3/envs/${ENV_DEFAULT_PYTHON}"
+#     fi
+# fi
 
 # Historical alternatives kept for reference only:
 # 1) /etc/profile.d login-shell autostart:
