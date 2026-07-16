@@ -13,6 +13,9 @@ if [ "${QWEN3_ASR_DISABLE_AUTOSTART:-}" = "1" ]; then
 fi
 
 APP_HOME="${APP_HOME:-/usr/local/app}"
+CONDA_HOME="${CONDA_HOME:-/usr/local/app/miniforge3}"
+CONDA_ENV_NAME="${CONDA_ENV_NAME:-qwen3-asr-flow}"
+CONDA_ENV_PREFIX="${CONDA_HOME}/envs/${CONDA_ENV_NAME}"
 APP_DIR="${APP_HOME}/qwen3-asr-serve"
 PID_FILE="${APP_DIR}/var/server.pid"
 LOG_FILE="${APP_DIR}/logs/autostart.log"
@@ -41,6 +44,14 @@ fi
     trap cleanup EXIT
 
     cd "${APP_DIR}" || exit 0
+
+    # The platform may activate its own default env under /data/miniconda3.
+    # Always start the service with the packaged qwen3-asr conda env.
+    export CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX}"
+    export PATH="${CONDA_ENV_PREFIX}/bin:${CONDA_HOME}/bin:${PATH}"
+    export CONDA_PREFIX="${CONDA_ENV_PREFIX}"
+    export CONDA_DEFAULT_ENV="${CONDA_ENV_NAME}"
+
     echo "[conda-activate-autostart] starting qwen3-asr via ./run.sh -d" >> "${LOG_FILE}"
     bash ./run.sh -d >> "${LOG_FILE}" 2>&1 || true
 ) >/dev/null 2>&1 &
